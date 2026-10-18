@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Talk with Linda, an AI assistant | Linda Energy</title>
+<meta name="description" content="Linda is an AI assistant for Inland Empire homeowners on SCE. She walks the bill, a preliminary design, and ways to pay. Binh Phan approves anything final. CSLB #139345.">
+<meta name="theme-color" content="#B5542A">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://sovereignenergy.github.io/linda-energy-pages/ai-closer/">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/favicon.png">
+<link rel="preload" href="assets/fonts/Fraunces-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="assets/style.css">
+<script>if(matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.classList.add("rm");</script>
+</head>
+<body class="booting">
+<canvas id="starfield" aria-hidden="true"></canvas>
+<div id="spot" aria-hidden="true"></div>
+<div class="hud" aria-hidden="true"><span class="hud-readout" id="hudReadout">Linda Energy · AI</span></div>
+<div class="boot" id="boot">
+  <div class="boot-card">
+    <div class="boot-core" aria-hidden="true"></div>
+    <p class="boot-kicker">Linda Energy</p>
+    <h2 class="boot-title">Good afternoon.</h2>
+    <ol id="bootLog"></ol>
+    <div class="boot-bar" aria-hidden="true"><i id="bootBar"></i></div>
+    <button class="btn" id="bootSkip" type="button">Skip the hello</button>
+  </div>
+</div>
+<a class="skip" href="#bay">Skip to the conversation</a>
+<header class="bar">
+  <a class="logo" href="./" aria-label="Linda Energy home">
+    <span class="wordmark">Linda Energy</span>
+    <small>CSLB #139345</small>
+  </a>
+  <div class="bar-actions">
+    <button class="voice-toggle" id="voiceToggle" type="button" aria-pressed="false" aria-label="Turn voice on"><span class="vt-ico" aria-hidden="true"></span><span class="vt-label">Voice off</span></button>
+    <span class="tag">AI assistant</span>
+  </div>
+</header>
+<main>
+  <div class="wrap">
+    <section class="hero" aria-labelledby="h1">
+      <div class="hero-copy">
+        <p class="eyebrow">Inland Empire · SCE</p>
+        <h1 id="h1">Sit down with Linda. <span class="glow">She’s an AI.</span></h1>
+        <p class="lede">Linda walks your electric bill, a preliminary design, and the ways to pay, in plain language. Binh Phan, the registered salesperson, reviews anything final before it is sent. Every figure is an estimate.</p>
+        <ul class="points">
+          <li>She says she is an AI, up front.</li>
+          <li>Designs and prices stay labeled as estimates.</li>
+          <li>Binh approves a proposal, a credit step, or a contract before it goes out.</li>
+        </ul>
+        <p class="aiflag" data-avatar-ai>Linda is an AI, not a person.</p>
+        <div class="hero-actions">
+          <button class="btn" id="begin" type="button">Talk with Linda</button>
+          <a class="btn ghost" href="#sequence">See the conversation</a>
+        </div>
+        <ul class="trust">
+          <li>41653 Margarita Rd #101, Temecula, CA</li>
+          <li>Licensed &amp; insured · CSLB #139345</li>
+          <li>Instagram @golindaenergy</li>
+        </ul>
+      </div>
+      <div class="av-frame">
+        <div class="av-core">
+          <canvas data-avatar width="480" height="480" aria-label="Linda, golden portrait. An AI, not a person." role="img"></canvas>
+          <div class="avatar-switch" role="group" aria-label="Choose a portrait of Linda">
+            <button class="av-pick" type="button" data-avatar-pick="glow" aria-pressed="true">Golden</button>
+            <button class="av-pick" type="button" data-avatar-pick="neighbor" aria-pressed="false">Neighbor</button>
+            <button class="av-pick" type="button" data-avatar-pick="advisor" aria-pressed="false">Advisor</button>
+          </div>
+          <div class="av-name" data-avatar-name>LINDA</div>
+          <div class="av-sub" data-avatar-blurb>Golden hour · AI, not a person</div>
+          <p class="av-license" data-brand-license>CSLB #139345</p>
+          <div class="av-state" data-av-state>Here with you</div>
+        </div>
+      </div>
+    </section>
+    <section class="section" id="sequence">
+      <p class="eyebrow reveal">The conversation</p>
+      <h2 class="reveal">Ten steps. She stays with you.</h2>
+      <div class="film">
+        <article class="panel reveal"><b>1 · Hello</b><p>Linda says she is an AI working with Binh.</p></article>
+        <article class="panel reveal"><b>2 · What you want</b><p>Your words. A shaky claim gets a gentle correction.</p></article>
+        <article class="panel reveal"><b>3 · Predictability</b><p>A contract price for solar power, with the yearly increase written down.</p></article>
+        <article class="panel reveal"><b>4 · What comes next</b><p>You hear the binding steps before anyone asks for them.</p></article>
+        <article class="panel reveal"><b>5 · Rate history</b><p>Only a cited, past figure. No forecast dressed up as fact.</p></article>
+        <article class="panel reveal"><b>6 · Your bill</b><p>Your numbers. Anything missing stays marked Not visible.</p></article>
+        <article class="panel reveal"><b>7 · A first look</b><p>A preliminary illustration. It can change after a site survey.</p></article>
+        <article class="panel reveal"><b>8 · Ways to pay</b><p>Lease, power purchase, loan, and cash, side by side.</p></article>
+        <article class="panel reveal"><b>9 · The paperwork</b><p>Warranties only as an approved agreement writes them.</p></article>
+        <article class="panel reveal"><b>10 · Binh’s review</b><p>He approves the offer, credit step, and contract before they go out.</p></article>
+      </div>
+    </section>
+    <section class="section">
+      <div class="split">
+        <article class="panel reveal">
+          <p class="eyebrow">Estimates</p>
+          <h2>Numbers stay labeled.</h2>
+          <p class="lede">Linda can sketch a system from the kWh you share. She will not invent a price, a savings percentage, or a leftover utility bill. You keep your SCE account.</p>
+        </article>
+        <article class="panel reveal">
+          <p class="eyebrow">Binh’s review</p>
+          <h2>He checks the packet.</h2>
+          <p>Linda prepares the file. These four steps stay closed until Binh approves them. You keep talking with her.</p>
+          <div class="gates">
+            <div><strong>Proposal</strong>Shown as an offer only after approval.</div>
+            <div><strong>Credit</strong>You enter sensitive details on a secure form, never in chat.</div>
+            <div><strong>Contract</strong>A signature packet only after the disclosures.</div>
+            <div><strong>Submission</strong>Provider tools, through Binh or a sanctioned link.</div>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="section">
+      <p class="eyebrow reveal">Ways to pay</p>
+      <h2 class="reveal">Four structures. No favorite.</h2>
+      <div class="cards">
+        <article class="panel reveal"><h3>PPA</h3><p>The company owns the system. You pay per kWh the system produces.</p></article>
+        <article class="panel reveal"><h3>Lease</h3><p>The company owns the system. You pay to use it, on the contract’s terms.</p></article>
+        <article class="panel reveal"><h3>Loan</h3><p>You own the system and repay a lender over time.</p></article>
+        <article class="panel reveal"><h3>Cash</h3><p>You own the system and pay the purchase price.</p></article>
+      </div>
+      <p class="fine reveal">Any yearly increase is the one written in a contract. This page does not quote a price.</p>
+    </section>
+    <section class="section reveal">
+      <p class="eyebrow">Your utility</p>
+      <h2>Built around SCE.</h2>
+      <div class="util-row">
+        <span class="pill">SCE</span>
+      </div>
+      <p class="lede">Linda Energy sits in Temecula and talks with Inland Empire homeowners on Southern California Edison. She can also read a PG&amp;E or SDG&amp;E bill in this same chat, and she won’t invent a rate. Other utilities stay with Binh.</p>
+    </section>
+    <section class="bay" id="bay">
+      <div class="bay-grid">
+        <aside class="bay-aside panel">
+          <canvas data-avatar width="420" height="420" aria-label="Linda, golden portrait. An AI, not a person." role="img"></canvas>
+          <div class="avatar-switch" role="group" aria-label="Choose a portrait of Linda">
+            <button class="av-pick" type="button" data-avatar-pick="glow" aria-pressed="true">Golden</button>
+            <button class="av-pick" type="button" data-avatar-pick="neighbor" aria-pressed="false">Neighbor</button>
+            <button class="av-pick" type="button" data-avatar-pick="advisor" aria-pressed="false">Advisor</button>
+          </div>
+          <div class="av-name" data-avatar-name>LINDA</div>
+          <div class="av-sub" data-avatar-blurb>Golden hour · AI, not a person</div>
+          <p class="av-license" data-brand-license>CSLB #139345</p>
+          <div class="av-state" data-av-state>Here with you</div>
+          <button class="textbtn" id="askBinh" type="button">Ask Binh to join</button>
+          <button class="textbtn" id="startOver" type="button">Start over</button>
+        </aside>
+        <section class="panel console" aria-label="Conversation with Linda">
+          <div class="console-bar">
+            <span data-console-title>LINDA · GOLDEN · AI</span>
+            <span class="fine" id="voiceMeta">Voice provider: Browser voice · muted</span>
+          </div>
+          <div class="chat" id="chat" tabindex="0">
+            <div class="msg bot"><span class="who">LINDA · AI</span>I’m here when you are. I’m an AI assistant, not a person. Voice replies stay off until you use the toggle.</div>
+          </div>
+          <div id="dock">
+            <button class="btn full" id="beginDock" type="button">Begin the conversation</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+</main>
+<footer class="site">
+  <div class="wrap">
+    <p><strong>Linda Energy</strong><br>41653 Margarita Rd #101, Temecula, CA<br>Instagram <a href="https://instagram.com/golindaenergy" rel="noopener">@golindaenergy</a></p>
+    <nav aria-label="Legal"><a href="../privacy/">Privacy Policy</a><a href="../terms/">Terms</a><a href="review/">Binh’s review</a></nav>
+    <p>Linda is an AI assistant, not a person. She gives general information and preliminary estimates, and she does not sign contracts. Binh Phan, the registered salesperson, approves any final proposal, credit application, or contract before it is sent. Results vary by home, usage, and rate plan. We don’t guarantee savings. © 2026 Linda Energy. Licensed &amp; insured, CSLB #139345.</p>
+  </div>
+</footer>
+<div id="live" class="sr" aria-live="polite"></div>
+<script src="../config.js"></script>
+<script src="assets/brand.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/lead.js"></script>
+<script src="assets/queue.js"></script>
+<script src="assets/voice.js"></script>
+<script src="assets/avatars.js"></script>
+<script src="assets/fx.js"></script>
+<script src="assets/closer.js"></script>
+<script>
+CloserAvatars.bindSwitcher();
+HeliosFX.start();
+HeliosVoice.bind(document.getElementById("voiceToggle"), document.getElementById("voiceMeta"));
+HeliosCloser.bind();
+HeliosFX.boot(function () {});
+</script>
+</body>
+</html>
