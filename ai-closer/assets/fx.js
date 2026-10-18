@@ -41,7 +41,7 @@
     var h = Math.max(2, r.height);
     cv.width = Math.round(w * d);
     cv.height = Math.round(h * d);
-    var x = cv.getContext("2d", { alpha: true });
+    var x = cv.getContext("2d", { alpha: true, willReadFrequently: cv.hasAttribute("data-avatar") });
     x.setTransform(d, 0, 0, d, 0, 0);
     return { cv: cv, ctx: x, w: w, h: h, on: true };
   }

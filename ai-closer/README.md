@@ -14,11 +14,15 @@ GitHub Pages: `https://sovereignenergy.github.io/linda-energy-pages/ai-closer/`
 
 ## Portraits
 
-Golden, Neighbor, and Advisor are three original drawings of Linda, a made-up spokesperson. They share the script, the voice bus, and the approval gate. Pick one with `?avatar=glow`, `?avatar=neighbor`, or `?avatar=advisor`. The buttons on the page write that param without a reload.
+Golden, Neighbor, and Advisor are hyperrealistic photographs of Linda, the AI spokesperson. The files are `assets/portraits/glow.jpg`, `neighbor.jpg`, and `advisor.jpg`. They share the script, the voice bus, and the approval gate. Pick one with `?avatar=glow`, `?avatar=neighbor`, or `?avatar=advisor`. The buttons on the page write that param without a reload.
 
 If the URL has no `avatar` value, `assets/config.js` uses `avatar`. If that is empty, `assets/brand.js` uses `defaultAvatar`. Anything else falls back to Golden.
 
-Each portrait animates idle, listening, thinking, and speaking. Speech level drives the mouth. Every portrait is labeled as an AI, and none of them is a photo of a real person.
+The browser animates the whole photograph. She breathes, her head drifts a little, she blinks, and her mouth follows the voice level. The background stays in the frame, so she is not a cutout. Every portrait says she is an AI.
+
+## Talking-head adapter
+
+`LindaTalkingHead` draws each frame. `HELIOS_CONFIG.talkingHead` defaults to `"photo"`. Set it to `"heygen"`, `"did"`, or `"simli"` when a vendor session should replace that animation. Call `LindaTalkingHead.attachVideo(video)` with a playing video element, or set `talkingHeadSession` to an `http(s)` or `blob:` media URL. Until that video can play, the photo stays on screen. `register(id, driver)` can swap in a vendor SDK. No vendor key is shipped in the page.
 
 ## Voice
 
@@ -40,4 +44,4 @@ The browser POSTs `{ "text", "voiceId" }`. The proxy streams audio bytes. If the
 
 ## What stays in the engine
 
-`closer.js`, `voice.js`, `queue.js`, and `fx.js` are the v4 engine, restyled for this brand. `avatars.js` keeps the same switcher and draw loop, with Linda’s three portraits. `brand.js` holds the company, the bot name, Binh’s name, the license, the address, and the colors.
+`closer.js`, `voice.js`, `queue.js`, and `fx.js` are the v4 engine, restyled for this brand. `avatars.js` keeps the same switcher and draw loop, and `LindaTalkingHead` is the portrait driver. `brand.js` holds the company, the bot name, Binh’s name, the license, the address, and the colors.

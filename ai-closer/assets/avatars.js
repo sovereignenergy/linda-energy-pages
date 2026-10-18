@@ -1,61 +1,105 @@
-/* Three original portraits of Linda, an AI spokesperson.
-   glow: warm golden-hour light portrait
-   neighbor: illustrated friend from down the street
-   advisor: polished sit-down advisor
-   None of these faces is a real person. */
+/* Hyperrealistic portraits of Linda, an AI spokesperson.
+   glow, neighbor, and advisor are photographs in assets/portraits/.
+   The photo driver animates them in the browser: breath, idle sway,
+   blinks, and a mouth that follows the voice level. Nothing is cut out.
+   LindaTalkingHead can hand the frame to a HeyGen, D-ID, or Simli video later. */
 (function () {
   "use strict";
+
   var IDS = ["glow", "neighbor", "advisor"];
   var META = {
     glow: {
       name: "Linda",
       version: "Golden",
-      blurb: "Golden-hour light portrait · AI, not a person"
+      blurb: "Golden hour · AI, not a person",
+      zoom: 1.07,
+      noseAt: 0.4,
+      /* YuNet landmarks, normalized to the 1280×720 master. */
+      face: { x: 0.341, y: 0.124, w: 0.189, h: 0.466 },
+      re: [0.384, 0.314],
+      le: [0.477, 0.294],
+      nose: [0.434, 0.388],
+      mouth: [0.401, 0.461, 0.489, 0.443]
     },
     neighbor: {
       name: "Linda",
       version: "Neighbor",
-      blurb: "Illustrated neighbor · AI, not a person"
+      blurb: "Kitchen table · AI, not a person",
+      zoom: 1.56,
+      noseAt: 0.38,
+      face: { x: 0.335, y: 0.103, w: 0.147, h: 0.333 },
+      re: [0.368, 0.234],
+      le: [0.440, 0.214],
+      nose: [0.411, 0.291],
+      mouth: [0.386, 0.348, 0.450, 0.329]
     },
     advisor: {
       name: "Linda",
       version: "Advisor",
-      blurb: "Polished advisor · AI, not a person"
+      blurb: "Front porch · AI, not a person",
+      zoom: 1.49,
+      noseAt: 0.38,
+      face: { x: 0.391, y: 0.094, w: 0.146, h: 0.349 },
+      re: [0.424, 0.236],
+      le: [0.497, 0.218],
+      nose: [0.465, 0.298],
+      mouth: [0.439, 0.353, 0.507, 0.336]
     }
   };
-  var current = "glow";
 
-  function colors() {
-    var c = (window.CLOSER_BRAND && window.CLOSER_BRAND.colors) || {};
-    return {
-      bg: c.bg || "#FBF5EC",
-      sand: c.sand || "#F3E6D2",
-      navy: c.navy || "#2F3A2A",
-      cyan: c.cyan || "#B5542A",
-      cyanDark: c.cyanDark || "#8F3F1D",
-      amber: c.amber || "#F2A541",
-      sage: c.sage || "#7E8F5A",
-      text: c.text || "#2B2420",
-      muted: c.muted || "#6B5D52"
-    };
+  var current = "glow";
+  var images = {};
+  var pose = null;
+  var chosenDriver = "";
+  var sharedVideo = null;
+  var registry = {};
+  var reducedMotion = document.documentElement.classList.contains("rm") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function portraitUrl(id) {
+    try {
+      return new URL("portraits/" + id + ".jpg", document.currentScript.src).href;
+    } catch (e) {
+      return "assets/portraits/" + id + ".jpg";
+    }
   }
-  function rgba(hex, a) {
-    var h = String(hex || "#000000").replace("#", "");
-    var n = parseInt(h, 16);
-    if (!isFinite(n)) n = 0;
-    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+
+  function preload() {
+    IDS.forEach(function (id) {
+      var im = new Image();
+      im.decoding = "async";
+      im.alt = "";
+      im.onload = paintStill;
+      im.src = portraitUrl(id);
+      images[id] = im;
+    });
   }
+
+  function paintStill() {
+    document.querySelectorAll("canvas[data-avatar]").forEach(function (cv) {
+      var ctx = cv.getContext("2d");
+      if (!ctx || !cv.width) return;
+      var tr = ctx.getTransform();
+      var dpr = tr && tr.a ? tr.a : 1;
+      var w = cv.width / dpr;
+      var h = cv.height / dpr;
+      if (w < 2 || h < 2) return;
+      try { drawFrame(ctx, w, h, reducedMotion ? 0 : performance.now(), runtime()); } catch (e) {}
+    });
+  }
+
   function runtime() {
     var H = window.HELIOS || { state: "idle", level: 0, pulses: [] };
     return {
-      state: H.state || "idle",
-      level: Math.max(0, Math.min(1, H.level || 0)),
+      state: pose && pose.state ? pose.state : (H.state || "idle"),
+      level: pose && typeof pose.level === "number" ? pose.level : Math.max(0, Math.min(1, H.level || 0)),
       pulses: H.pulses || []
     };
   }
+
   function valid(id) {
     return IDS.indexOf(String(id || "").toLowerCase()) >= 0;
   }
+
   function resolve() {
     var fromUrl = "";
     try { fromUrl = new URLSearchParams(location.search).get("avatar") || ""; } catch (e) {}
@@ -66,6 +110,7 @@
     if (valid(brandDefault)) return String(brandDefault).toLowerCase();
     return "glow";
   }
+
   function writeUrl(id) {
     try {
       var url = new URL(location.href);
@@ -73,6 +118,7 @@
       history.replaceState(null, "", url.pathname + url.search + url.hash);
     } catch (e) {}
   }
+
   function paintChrome(id) {
     var meta = META[id];
     var bot = (window.CLOSER_BRAND && window.CLOSER_BRAND.botName) || "Linda";
@@ -91,15 +137,16 @@
       el.textContent = meta.blurb;
     });
     document.querySelectorAll("[data-avatar-ai]").forEach(function (el) {
-      el.textContent = meta.name + " is an AI, not a person. The " + meta.version.toLowerCase() + " portrait is original and is not a photo of anyone.";
+      el.textContent = meta.name + " is an AI, not a person.";
     });
     document.querySelectorAll("canvas[data-avatar]").forEach(function (cv) {
-      cv.setAttribute("aria-label", meta.name + ", " + meta.version.toLowerCase() + " portrait. An AI, not a person. This face is original and resembles no real individual.");
+      cv.setAttribute("aria-label", meta.name + ", " + meta.version.toLowerCase() + " portrait. An AI, not a person.");
     });
     document.querySelectorAll("[data-console-title]").forEach(function (el) {
       el.textContent = bot.toUpperCase() + " · " + meta.version.toUpperCase() + " · AI";
     });
   }
+
   function use(id, opts) {
     id = valid(id) ? String(id).toLowerCase() : "glow";
     current = id;
@@ -108,58 +155,177 @@
     return id;
   }
 
-  function drawPulses(ctx, cx, cy, w, color) {
-    var H = window.HELIOS;
-    if (!H || !H.pulses) return;
-    var now = performance.now();
-    H.pulses.forEach(function (stamp) {
-      var age = (now - stamp) / 900;
-      if (age < 0 || age > 1) return;
-      ctx.globalAlpha = (1 - age) * 0.55;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 10 + age * w * 0.22, 0, Math.PI * 2);
-      ctx.stroke();
-    });
-    ctx.globalAlpha = 1;
-    H.pulses = H.pulses.filter(function (stamp) { return now - stamp < 900; });
+  function seedOf(id) {
+    return id === "neighbor" ? 0.72 : id === "advisor" ? 0.31 : 0.15;
   }
 
-  function eyeOpen(t) {
-    var cycle = 3400 + 400 * (0.5 + 0.5 * Math.sin(t * 0.00011));
-    var phase = t % cycle;
-    var at = cycle * 0.72;
-    var dist = Math.abs(phase - at);
-    if (dist >= 110) return 1;
-    return Math.pow(dist / 110, 1.35);
+  function blinkClosed(t, seed) {
+    if (pose && typeof pose.blink === "number") return Math.max(0, Math.min(1, pose.blink));
+    if (reducedMotion) return 0;
+    var cycle = 3400 + seed * 1600;
+    var phase = (t + seed * 900) % cycle;
+    var start = cycle * 0.58;
+    var closeD = 78;
+    var openD = 140;
+    var local = phase - start;
+    if (local < 0 || local > closeD + openD) {
+      var again = phase - (start + 300);
+      if (seed > 0.5 && again > 0 && again < closeD + openD) local = again;
+      else return 0;
+    }
+    if (local < closeD) {
+      var u = local / closeD;
+      return u * u;
+    }
+    var v = (local - closeD) / openD;
+    return Math.max(0, 1 - v * v);
   }
 
-  function lipGap(state, level, t, scale) {
-    var k = t * 0.001;
-    if (state === "speaking") return scale * (0.35 + level * 1.15 * (0.45 + 0.55 * Math.abs(Math.sin(k * 16))));
-    if (state === "listening") return scale * 0.22;
-    if (state === "thinking") return scale * 0.08;
-    return scale * 0.12;
+  function motionAt(t, state, seed) {
+    if (reducedMotion || (pose && pose.still)) return { x: 0, y: 0, rot: 0, scale: 1.03 };
+    var breathe = Math.sin(t * 0.00162 + seed * 4);
+    var scale = 1.045 + breathe * 0.0055;
+    var x = Math.sin(t * 0.00082 + seed) * 1.45;
+    var y = Math.sin(t * 0.00108 + 1.2) * 1.05 + breathe * 0.35;
+    var rot = Math.sin(t * 0.0005 + seed * 2) * 0.007;
+    if (state === "speaking") {
+      y += Math.sin(t * 0.0072) * 0.65;
+      rot += Math.sin(t * 0.0055) * 0.0025;
+    } else if (state === "listening") {
+      x *= 0.55;
+      y *= 0.7;
+    } else if (state === "thinking") {
+      rot += Math.sin(t * 0.0011) * 0.004;
+      x += 0.6;
+    }
+    return { x: x, y: y, rot: rot, scale: scale };
   }
 
-  function drawAiMark(ctx, w, h, C) {
-    var label = "AI";
-    ctx.save();
-    ctx.font = "700 " + Math.max(11, h * 0.032) + "px Inter, system-ui, sans-serif";
-    var tw = ctx.measureText(label).width;
-    var padX = h * 0.018;
-    var bw = tw + padX * 2;
-    var bh = h * 0.048;
-    var x = w * 0.08;
-    var y = h * 0.08;
-    ctx.fillStyle = rgba(C.cyan, 0.92);
-    roundRect(ctx, x, y, bw, bh, bh / 2);
-    ctx.fill();
-    ctx.fillStyle = "#FFFDF9";
-    ctx.textBaseline = "middle";
-    ctx.fillText(label, x + padX, y + bh / 2 + 0.5);
-    ctx.restore();
+  function jawAmount(t, state, level, seed) {
+    if (pose && typeof pose.level === "number") level = pose.level;
+    if (reducedMotion) return 0;
+    if (state === "speaking") {
+      var syllable = Math.abs(Math.sin(t * 0.017 + seed * 5));
+      var micro = 0.62 + 0.38 * Math.abs(Math.sin(t * 0.043 + 1.4));
+      var energy = 0.42 + 0.58 * Math.max(0, Math.min(1, level));
+      return (0.06 + 0.94 * syllable * micro) * energy;
+    }
+    if (state === "listening") return 0.04;
+    return 0;
+  }
+
+  function cropFor(img, meta, w, h) {
+    var iw = img.naturalWidth;
+    var ih = img.naturalHeight;
+    var zoom = meta.zoom;
+    var sh = Math.min(ih, ih / zoom);
+    var sw = sh * (w / Math.max(1, h));
+    if (sw > iw) {
+      sw = iw;
+      sh = sw * (h / Math.max(1, w));
+    }
+    var noseX = meta.nose[0] * iw;
+    var noseY = meta.nose[1] * ih;
+    var sx = noseX - sw * 0.5;
+    var sy = noseY - sh * meta.noseAt;
+    if (sx < 0) sx = 0;
+    if (sy < 0) sy = 0;
+    if (sx + sw > iw) sx = iw - sw;
+    if (sy + sh > ih) sy = ih - sh;
+    return { sx: sx, sy: sy, sw: sw, sh: sh, iw: iw, ih: ih };
+  }
+
+  function toCanvas(nx, ny, crop, w, h) {
+    return {
+      x: ((nx * crop.iw) - crop.sx) / crop.sw * w,
+      y: ((ny * crop.ih) - crop.sy) / crop.sh * h
+    };
+  }
+
+  function moved(p, pivot, motion) {
+    var x = p.x - pivot.x;
+    var y = p.y - pivot.y;
+    var c = Math.cos(motion.rot);
+    var s = Math.sin(motion.rot);
+    return {
+      x: (x * c - y * s) * motion.scale + pivot.x + motion.x,
+      y: (x * s + y * c) * motion.scale + pivot.y + motion.y
+    };
+  }
+
+  function dprOf(ctx) {
+    var tr = ctx.getTransform();
+    return tr && tr.a ? tr.a : 1;
+  }
+
+  function bilinear(src, w, h, x, y) {
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+    if (x > w - 1.001) x = w - 1.001;
+    if (y > h - 1.001) y = h - 1.001;
+    var x0 = Math.floor(x);
+    var y0 = Math.floor(y);
+    var x1 = x0 + 1 < w ? x0 + 1 : x0;
+    var y1 = y0 + 1 < h ? y0 + 1 : y0;
+    var tx = x - x0;
+    var ty = y - y0;
+    var i00 = (y0 * w + x0) * 4;
+    var i10 = (y0 * w + x1) * 4;
+    var i01 = (y1 * w + x0) * 4;
+    var i11 = (y1 * w + x1) * 4;
+    var out = [0, 0, 0, 255];
+    var k = 0;
+    for (; k < 3; k++) {
+      var a = src[i00 + k] + (src[i10 + k] - src[i00 + k]) * tx;
+      var b = src[i01 + k] + (src[i11 + k] - src[i01 + k]) * tx;
+      out[k] = a + (b - a) * ty;
+    }
+    return out;
+  }
+
+  function warp(ctx, cssX, cssY, cssW, cssH, sampleAt) {
+    var dpr = dprOf(ctx);
+    var x0 = Math.max(0, Math.floor(cssX * dpr));
+    var y0 = Math.max(0, Math.floor(cssY * dpr));
+    var x1 = Math.min(ctx.canvas.width, Math.ceil((cssX + cssW) * dpr));
+    var y1 = Math.min(ctx.canvas.height, Math.ceil((cssY + cssH) * dpr));
+    var rw = x1 - x0;
+    var rh = y1 - y0;
+    if (rw < 2 || rh < 2 || rw > 900 || rh > 900) return;
+    var img = ctx.getImageData(x0, y0, rw, rh);
+    var src = img.data;
+    var bag = ctx.canvas.__lindaWarp || (ctx.canvas.__lindaWarp = {});
+    var key = rw + "x" + rh;
+    var out = bag[key];
+    if (!out) {
+      out = ctx.createImageData(rw, rh);
+      bag[key] = out;
+    }
+    var dst = out.data;
+    var j, i, o, s, m, k, p, cx, cy;
+    for (j = 0; j < rh; j++) {
+      cy = (y0 + j + 0.5) / dpr;
+      for (i = 0; i < rw; i++) {
+        cx = (x0 + i + 0.5) / dpr;
+        o = (j * rw + i) * 4;
+        s = sampleAt(cx, cy);
+        if (!s || s.mix < 0.012) {
+          dst[o] = src[o];
+          dst[o + 1] = src[o + 1];
+          dst[o + 2] = src[o + 2];
+          dst[o + 3] = src[o + 3];
+          continue;
+        }
+        p = bilinear(src, rw, rh, s.x * dpr - x0, s.y * dpr - y0);
+        m = s.mix > 1 ? 1 : s.mix;
+        k = 1 - m;
+        dst[o] = p[0] * m + src[o] * k;
+        dst[o + 1] = p[1] * m + src[o + 1] * k;
+        dst[o + 2] = p[2] * m + src[o + 2] * k;
+        dst[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(out, x0, y0);
   }
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -173,510 +339,245 @@
     ctx.closePath();
   }
 
-function glowHalf(y, h) {
-  var headY = h * 0.38;
-  var headR = h * 0.14;
-  if (y < headY - headR * 1.25) return 0;
-  if (y < headY - headR * 0.2) {
-    var hairU = (y - (headY - headR * 1.25)) / (headR * 1.05);
-    return headR * (0.7 + 0.7 * Math.sin(Math.min(1, hairU) * Math.PI));
-  }
-  if (y < headY + headR) {
-    var dy = (y - headY) / headR;
-    if (Math.abs(dy) > 1) return 0;
-    var cheek = Math.sqrt(Math.max(0, 1 - dy * dy));
-    var jaw = dy > 0.55 ? 1 - (dy - 0.55) * 0.35 : 1;
-    return cheek * headR * 0.72 * jaw;
-  }
-  if (y < h * 0.58) return headR * 0.26;
-  var u = (y - h * 0.58) / (h * 0.24);
-  if (u > 1) return 0;
-  return headR * (0.32 + 2.1 * Math.pow(u, 0.65));
-}
-
-  function drawGlow(ctx, w, h, t, state, level) {
-    var C = colors();
-    var cx = w / 2;
-    var k = t * 0.001;
-    var breathe = Math.sin(k * 1.3) * (state === "idle" ? h * 0.008 : h * 0.003);
-    var headY = h * 0.38 + breathe;
-
-    var sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, "#FFF4DE");
-    sky.addColorStop(0.5, "#F6D7A2");
-    sky.addColorStop(1, "#E7C48A");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h);
-
-    var sun = ctx.createRadialGradient(cx, headY, 0, cx, headY, w * 0.46);
-    sun.addColorStop(0, rgba("#FFF6D8", 0.95));
-    sun.addColorStop(0.25, rgba(C.amber, 0.55 + level * 0.25));
-    sun.addColorStop(0.6, rgba(C.cyan, 0.12));
-    sun.addColorStop(1, "transparent");
-    ctx.fillStyle = sun;
-    ctx.fillRect(0, 0, w, h);
-
+  function drawAiMark(ctx, w, h) {
+    var label = "AI";
     ctx.save();
-    ctx.translate(cx, headY);
-    ctx.rotate(k * 0.05);
-    ctx.strokeStyle = rgba(C.amber, 0.28);
-    ctx.lineWidth = 1.4;
-    for (var ray = 0; ray < 8; ray++) {
-      ctx.rotate(Math.PI / 8);
-      ctx.beginPath();
-      ctx.moveTo(h * 0.2, 0);
-      ctx.lineTo(h * 0.42, 0);
-      ctx.stroke();
+    ctx.font = "700 " + Math.max(12, Math.round(h * 0.034)) + "px Inter, system-ui, sans-serif";
+    var tw = ctx.measureText(label).width;
+    var padX = Math.max(9, w * 0.03);
+    var bw = tw + padX * 2;
+    var bh = Math.max(20, h * 0.058);
+    var x = w * 0.045;
+    var y = h * 0.045;
+    ctx.shadowColor = "rgba(43,36,32,0.18)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = "rgba(251,245,236,0.94)";
+    roundRect(ctx, x, y, bw, bh, bh / 2);
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.fillStyle = "#8F3F1D";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, x + padX, y + bh / 2 + 0.5);
+    ctx.restore();
+  }
+
+  function drawPhoto(ctx, w, h, t, run) {
+    var meta = META[current] || META.glow;
+    var img = images[current];
+    ctx.clearRect(0, 0, w, h);
+    if (!img || !img.complete || !img.naturalWidth) {
+      ctx.fillStyle = "#F3E6D2";
+      ctx.fillRect(0, 0, w, h);
+      drawAiMark(ctx, w, h);
+      return;
     }
+    var crop = cropFor(img, meta, w, h);
+    var seed = seedOf(current);
+    var motion = motionAt(t, run.state, seed);
+    var nose = toCanvas(meta.nose[0], meta.nose[1], crop, w, h);
+    var chinRaw = toCanvas(meta.nose[0], meta.face.y + meta.face.h, crop, w, h);
+    var pivot = { x: nose.x, y: nose.y + (chinRaw.y - nose.y) * 0.92 };
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.translate(pivot.x + motion.x, pivot.y + motion.y);
+    ctx.rotate(motion.rot);
+    ctx.scale(motion.scale, motion.scale);
+    ctx.translate(-pivot.x, -pivot.y);
+    ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, w, h);
     ctx.restore();
 
-    var ground = ctx.createRadialGradient(cx, h * 0.88, 0, cx, h * 0.88, w * 0.32);
-    ground.addColorStop(0, rgba(C.amber, 0.55));
-    ground.addColorStop(1, "transparent");
-    ctx.fillStyle = ground;
-    ctx.beginPath();
-    ctx.ellipse(cx, h * 0.88, w * 0.28, h * 0.04, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    for (var y = h * 0.14; y < h * 0.82; y += 2.2) {
-      var hw = glowHalf(y - breathe, h);
-      if (!hw) continue;
-      var flicker = 0.45 + 0.4 * Math.abs(Math.sin(y * 0.07 - k * 2));
-      ctx.globalAlpha = Math.min(0.92, flicker + level * 0.25 + (state === "listening" ? 0.08 : 0));
-      var inHair = y < h * 0.34;
-      ctx.fillStyle = inHair ? (Math.floor(y) % 6 < 2 ? C.cyan : "#E8A04A") : (state === "thinking" ? "#E39A3C" : "#F2B15A");
-      var j = Math.sin(y * 0.09 + k * 1.7) * (state === "speaking" ? 2 : 0.6);
-      var extra = inHair ? hw * 0.22 : 0;
-      ctx.fillRect(cx - hw - extra * 0.35 + j, y, hw * 2 + extra, 1.6);
+    if (!reducedMotion || (pose && (pose.blink || pose.level || pose.state))) {
+      try {
+        animateFace(ctx, w, h, t, run, meta, crop, pivot, motion, seed);
+      } catch (e) {}
     }
-    ctx.globalAlpha = 1;
-
-    ctx.strokeStyle = rgba("#FFF8EA", 0.85);
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.ellipse(cx, headY, h * 0.1, h * 0.125, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx - h * 0.02, headY - h * 0.02, h * 0.13, Math.PI * 1.05, Math.PI * 1.7);
-    ctx.stroke();
-
-    var open = state === "listening" ? 1 : eyeOpen(t);
-    var eyeY = headY - h * 0.015;
-    var look = state === "thinking" ? -h * 0.01 : Math.sin(k * 0.4) * h * 0.003;
-    [-1, 1].forEach(function (d) {
-      var ex = cx + d * h * 0.04 + look;
-      ctx.fillStyle = rgba("#FFFDF6", 0.95);
-      ctx.beginPath();
-      ctx.ellipse(ex, eyeY, h * 0.026, Math.max(1.2, h * 0.014 * open), 0, 0, Math.PI * 2);
-      ctx.fill();
-      if (open > 0.25) {
-        ctx.fillStyle = C.cyanDark;
-        ctx.beginPath();
-        ctx.arc(ex, eyeY, Math.max(1.4, h * 0.008 * open), 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
-
-    var mouthY = headY + h * 0.055;
-    var gap = lipGap(state, level, t, h * 0.04);
-    ctx.strokeStyle = rgba("#FFF6E4", 0.95);
-    ctx.fillStyle = rgba(C.cyan, 0.85);
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx - h * 0.035, mouthY);
-    ctx.quadraticCurveTo(cx, mouthY - h * 0.01, cx + h * 0.035, mouthY);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx - h * 0.032, mouthY + gap);
-    ctx.quadraticCurveTo(cx, mouthY + gap + h * 0.016, cx + h * 0.032, mouthY + gap);
-    ctx.stroke();
-    if (gap > h * 0.01) {
-      ctx.globalAlpha = 0.8;
-      ctx.fillRect(cx - h * 0.02, mouthY + 1, h * 0.04, Math.max(1, gap - 1));
-      ctx.globalAlpha = 1;
-    }
-    if (state === "speaking") {
-      for (var b = 0; b < 5; b++) {
-        var bh = 2 + level * (6 + 10 * Math.abs(Math.sin(k * 14 + b)));
-        ctx.fillStyle = "#FFF6E0";
-        ctx.fillRect(cx + (b - 2) * h * 0.012, mouthY + gap * 0.45 - bh / 2, 2, bh);
-      }
-    }
-
-    var rings = state === "speaking" || state === "listening" ? 3 : 0;
-    for (var r = 0; r < rings; r++) {
-      var ph = (k * (state === "listening" ? -0.35 : 0.5) + r / rings) % 1;
-      if (ph < 0) ph += 1;
-      ctx.globalAlpha = (1 - ph) * (0.2 + level * 0.45);
-      ctx.strokeStyle = state === "listening" ? C.sage : C.amber;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      var radius = state === "listening" ? h * 0.18 - ph * h * 0.08 : h * 0.04 + ph * h * (0.08 + level * 0.12);
-      ctx.arc(cx, mouthY, Math.max(8, radius), 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    if (state === "thinking") {
-      for (var n = 0; n < 6; n++) {
-        var a = k * 0.8 + n * 1.05;
-        ctx.fillStyle = n % 2 ? C.amber : C.sage;
-        ctx.globalAlpha = 0.8;
-        ctx.beginPath();
-        ctx.arc(cx + Math.cos(a) * h * 0.2, headY + Math.sin(a) * h * 0.08, 2.4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-    }
-    drawPulses(ctx, cx, mouthY, w, C.amber);
-    drawAiMark(ctx, w, h, C);
+    drawAiMark(ctx, w, h);
   }
 
-  function drawNeighbor(ctx, w, h, t, state, level) {
-    var C = colors();
-    var k = t * 0.001;
-    var sway = Math.sin(k * 1.1) * (state === "listening" ? 7 : 3);
-    var bob = Math.sin(k * 1.45) * 2.5;
-    var tilt = state === "listening" ? -0.07 : state === "thinking" ? 0.045 : Math.sin(k * 0.4) * 0.012;
-    var open = state === "listening" ? 1 : eyeOpen(t);
-    var lookX = state === "thinking" ? -5 : Math.sin(k * 0.32) * 1.4;
-    var S = Math.min(w, h);
-
-    var sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, "#FFF7EC");
-    sky.addColorStop(0.62, "#F8D7A4");
-    sky.addColorStop(1, "#E7C48A");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h);
-    var sun = ctx.createRadialGradient(w * 0.8, h * 0.18, 0, w * 0.8, h * 0.18, w * 0.22);
-    sun.addColorStop(0, "#FFF6D2");
-    sun.addColorStop(0.5, rgba(C.amber, 0.9));
-    sun.addColorStop(1, "transparent");
-    ctx.fillStyle = sun;
-    ctx.beginPath();
-    ctx.arc(w * 0.8, h * 0.18, w * 0.22, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = C.sage;
-    ctx.beginPath();
-    ctx.moveTo(0, h * 0.84);
-    ctx.quadraticCurveTo(w * 0.4, h * 0.74, w, h * 0.86);
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.fill();
-
-    ctx.save();
-    ctx.translate(w / 2 + sway, h * 0.48 + bob);
-    ctx.rotate(tilt);
-
-    ctx.fillStyle = rgba(C.navy, 0.08);
-    ctx.beginPath();
-    ctx.ellipse(0, S * 0.42, S * 0.2, S * 0.025, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#6E8A55";
-    roundRect(ctx, -S * 0.2, S * 0.1, S * 0.4, S * 0.32, S * 0.1);
-    ctx.fill();
-    ctx.fillStyle = "#F6E6D0";
-    ctx.beginPath();
-    ctx.moveTo(-S * 0.06, S * 0.12);
-    ctx.lineTo(S * 0.06, S * 0.12);
-    ctx.lineTo(S * 0.09, S * 0.32);
-    ctx.lineTo(-S * 0.09, S * 0.32);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = C.amber;
-    ctx.beginPath();
-    ctx.arc(-S * 0.13, S * 0.24, S * 0.012, 0, Math.PI * 2);
-    ctx.arc(S * 0.13, S * 0.24, S * 0.012, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#E8B48A";
-    roundRect(ctx, -S * 0.04, S * 0.05, S * 0.08, S * 0.08, 6);
-    ctx.fill();
-
-    ctx.fillStyle = "#5C4033";
-    ctx.beginPath();
-    ctx.arc(-S * 0.01, -S * 0.02, S * 0.195, Math.PI * 0.85, Math.PI * 2.15);
-    ctx.quadraticCurveTo(S * 0.2, S * 0.12, S * 0.12, S * 0.16);
-    ctx.quadraticCurveTo(0, S * 0.05, -S * 0.14, S * 0.12);
-    ctx.quadraticCurveTo(-S * 0.22, S * 0.02, -S * 0.16, -S * 0.08);
-    ctx.fill();
-
-    ctx.fillStyle = "#F0C3A4";
-    ctx.beginPath();
-    ctx.arc(0, 0, S * 0.15, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#5C4033";
-    ctx.beginPath();
-    ctx.ellipse(-S * 0.01, -S * 0.07, S * 0.145, S * 0.09, -0.05, Math.PI, 0);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(S * 0.145, S * 0.04, S * 0.045, S * 0.09, 0.35, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = C.amber;
-    ctx.beginPath();
-    ctx.arc(-S * 0.08, -S * 0.12, S * 0.016, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = C.cyan;
-    ctx.beginPath();
-    ctx.ellipse(0, S * 0.105, S * 0.09, S * 0.028, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    [-1, 1].forEach(function (d) {
-      var ex = d * S * 0.055 + lookX;
-      var ey = -S * 0.015;
-      ctx.fillStyle = "#FFFDF9";
-      ctx.beginPath();
-      ctx.ellipse(ex, ey, S * 0.03, Math.max(1.5, S * 0.032 * open), 0, 0, Math.PI * 2);
-      ctx.fill();
-      if (open > 0.2) {
-        ctx.fillStyle = "#3E4F34";
-        ctx.beginPath();
-        ctx.arc(ex, ey + S * 0.004, S * 0.014, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#1B2416";
-        ctx.beginPath();
-        ctx.arc(ex, ey + S * 0.004, S * 0.007, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(ex - S * 0.008, ey - S * 0.004, S * 0.006, S * 0.006);
-      }
-      ctx.strokeStyle = "#6B4B38";
-      ctx.lineWidth = Math.max(1.6, S * 0.006);
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(ex - S * 0.028, ey - S * 0.042);
-      ctx.quadraticCurveTo(ex, ey - S * 0.055, ex + S * 0.028, ey - S * 0.038);
-      ctx.stroke();
-    });
-
-    ctx.strokeStyle = rgba("#C98462", 0.65);
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    ctx.moveTo(0, S * 0.02);
-    ctx.quadraticCurveTo(S * 0.012, S * 0.045, 0, S * 0.055);
-    ctx.stroke();
-
-    [-1, 1].forEach(function (d) {
-      ctx.fillStyle = rgba("#E38B6A", 0.28);
-      ctx.beginPath();
-      ctx.ellipse(d * S * 0.085, S * 0.035, S * 0.026, S * 0.014, 0, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.fillStyle = rgba("#8A5A3A", 0.45);
-    [[-0.07, 0.02], [-0.055, 0.032], [-0.04, 0.02]].forEach(function (p) {
-      ctx.beginPath();
-      ctx.arc(S * p[0], S * p[1], S * 0.004, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    var gap = lipGap(state, level, t, S * 0.04);
-    var mouthY = S * 0.07;
-    var mw = S * 0.05;
-    ctx.fillStyle = "#C45348";
-    ctx.beginPath();
-    ctx.moveTo(-mw, mouthY);
-    ctx.quadraticCurveTo(0, mouthY - S * 0.012, mw, mouthY);
-    ctx.quadraticCurveTo(0, mouthY + gap + S * 0.022, -mw, mouthY);
-    ctx.fill();
-    if (gap > S * 0.01) {
-      ctx.fillStyle = "#6A3034";
-      ctx.beginPath();
-      ctx.ellipse(0, mouthY + gap * 0.42, mw * 0.52, Math.max(1, gap * 0.36), 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#FFF4E8";
-      ctx.fillRect(-mw * 0.42, mouthY + 1, mw * 0.84, Math.max(1.2, gap * 0.16));
+  function animateFace(ctx, w, h, t, run, meta, crop, pivot, motion, seed) {
+    var re = moved(toCanvas(meta.re[0], meta.re[1], crop, w, h), pivot, motion);
+    var le = moved(toCanvas(meta.le[0], meta.le[1], crop, w, h), pivot, motion);
+    var iod = Math.hypot(le.x - re.x, le.y - re.y);
+    if (iod < 8) return;
+    var angle = Math.atan2(le.y - re.y, le.x - re.x);
+    var closed = blinkClosed(t, seed);
+    if (closed > 0.02) {
+      blinkEye(ctx, re, iod, angle, closed);
+      blinkEye(ctx, le, iod, angle, closed);
     }
-
-    if (state === "listening") {
-      ctx.strokeStyle = rgba(C.sage, 0.85);
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(-S * 0.02, -S * 0.02, S * 0.2, Math.PI * 0.15, Math.PI * 0.55);
-      ctx.stroke();
-    }
-    if (state === "thinking") {
-      [0, 1, 2].forEach(function (n) {
-        ctx.fillStyle = C.navy;
-        ctx.globalAlpha = 0.35 + 0.45 * Math.abs(Math.sin(k * 3 + n));
-        ctx.beginPath();
-        ctx.arc(S * 0.22 + n * S * 0.03, -S * 0.22 - n * S * 0.012, S * 0.01, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
-    drawPulses(ctx, w / 2, h * 0.62, w, C.amber);
-    drawAiMark(ctx, w, h, C);
+    var amount = jawAmount(t, run.state, run.level, seed);
+    if (amount > 0.02) speakMouth(ctx, h, meta, crop, pivot, motion, amount);
   }
 
-  function drawAdvisor(ctx, w, h, t, state, level) {
-    var C = colors();
-    var k = t * 0.001;
-    var breathe = Math.sin(k * 1.25) * 2;
-    var nod = state === "listening" ? Math.sin(k * 1.7) * 3 : 0;
-    var open = state === "listening" ? 1 : eyeOpen(t);
-    var lookX = state === "thinking" ? 6 : Math.sin(k * 0.28) * 1.2;
-    var S = Math.min(w, h);
-
-    var studio = ctx.createLinearGradient(0, 0, 0, h);
-    studio.addColorStop(0, "#FBF7F1");
-    studio.addColorStop(1, "#E8D4BA");
-    ctx.fillStyle = studio;
-    ctx.fillRect(0, 0, w, h);
-    ctx.strokeStyle = rgba(C.cyan, 0.28);
-    ctx.lineWidth = 1.25;
-    ctx.beginPath();
-    ctx.arc(w / 2, h * 0.46, S * 0.4, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.save();
-    ctx.translate(w / 2, h * 0.46 + breathe + nod);
-
-    ctx.fillStyle = rgba(C.navy, 0.07);
-    ctx.beginPath();
-    ctx.ellipse(0, S * 0.42, S * 0.18, S * 0.02, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#243026";
-    ctx.beginPath();
-    ctx.moveTo(-S * 0.26, S * 0.44);
-    ctx.quadraticCurveTo(-S * 0.24, S * 0.16, -S * 0.06, S * 0.1);
-    ctx.lineTo(S * 0.06, S * 0.1);
-    ctx.quadraticCurveTo(S * 0.24, S * 0.16, S * 0.26, S * 0.44);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = rgba("#F4E7D6", 0.9);
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-S * 0.05, S * 0.12);
-    ctx.lineTo(0, S * 0.28);
-    ctx.lineTo(S * 0.05, S * 0.12);
-    ctx.stroke();
-    ctx.fillStyle = "#F7F1E8";
-    ctx.beginPath();
-    ctx.moveTo(-S * 0.035, S * 0.11);
-    ctx.lineTo(S * 0.035, S * 0.11);
-    ctx.lineTo(S * 0.055, S * 0.28);
-    ctx.lineTo(-S * 0.055, S * 0.28);
-    ctx.fill();
-    ctx.fillStyle = C.amber;
-    ctx.beginPath();
-    ctx.arc(S * 0.1, S * 0.2, S * 0.014, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#E4B08A";
-    roundRect(ctx, -S * 0.028, S * 0.06, S * 0.056, S * 0.07, 4);
-    ctx.fill();
-
-    ctx.fillStyle = "#2A221E";
-    ctx.beginPath();
-    ctx.arc(S * 0.13, -S * 0.02, S * 0.055, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(0, -S * 0.04, S * 0.13, S * 0.15, 0, Math.PI * 1.02, Math.PI * 1.98);
-    ctx.quadraticCurveTo(S * 0.12, S * 0.02, S * 0.08, S * 0.08);
-    ctx.quadraticCurveTo(0, -S * 0.02, -S * 0.09, S * 0.05);
-    ctx.quadraticCurveTo(-S * 0.14, -S * 0.04, -S * 0.1, -S * 0.1);
-    ctx.fill();
-
-    var face = ctx.createRadialGradient(-S * 0.03, -S * 0.04, S * 0.02, 0, 0, S * 0.16);
-    face.addColorStop(0, "#F6D0B2");
-    face.addColorStop(0.72, "#E4B08A");
-    face.addColorStop(1, "#D09970");
-    ctx.fillStyle = face;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, S * 0.1, S * 0.125, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#2A221E";
-    ctx.beginPath();
-    ctx.ellipse(0, -S * 0.055, S * 0.1, S * 0.07, 0, Math.PI, 0);
-    ctx.fill();
-
-    [-1, 1].forEach(function (d) {
-      var ex = d * S * 0.04 + lookX;
-      var ey = -S * 0.012;
-      var eh = Math.max(1.3, S * 0.016 * open);
-      ctx.fillStyle = "#FFFDF9";
-      ctx.beginPath();
-      ctx.ellipse(ex, ey, S * 0.024, eh, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#3A2C26";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-      if (open > 0.22) {
-        ctx.fillStyle = "#3A312C";
-        ctx.beginPath();
-        ctx.arc(ex + lookX * 0.15, ey, Math.max(1.5, eh * 0.62), 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#fff";
-        ctx.fillRect(ex - eh * 0.25, ey - eh * 0.35, Math.max(1.2, eh * 0.3), Math.max(1.2, eh * 0.3));
-      }
-      ctx.strokeStyle = "#2A221E";
-      ctx.lineWidth = 1.7;
-      ctx.beginPath();
-      var lift = state === "thinking" && d > 0 ? -S * 0.01 : 0;
-      ctx.moveTo(ex - S * 0.026, ey - S * 0.03 + lift);
-      ctx.quadraticCurveTo(ex, ey - S * 0.042 + lift, ex + S * 0.028, ey - S * 0.028);
-      ctx.stroke();
+  function blinkEye(ctx, eye, iod, angle, closed) {
+    var rx = iod * 0.2;
+    var ry = iod * 0.125;
+    var pad = Math.max(rx, ry) * 2.15;
+    var cosA = Math.cos(angle);
+    var sinA = Math.sin(angle);
+    var cosB = Math.cos(-angle);
+    var sinB = Math.sin(-angle);
+    warp(ctx, eye.x - pad, eye.y - pad, pad * 2, pad * 2, function (px, py) {
+      var dx = px - eye.x;
+      var dy = py - eye.y;
+      var lx = dx * cosB - dy * sinB;
+      var ly = dx * sinB + dy * cosB;
+      var nx = lx / rx;
+      var ny = ly / ry;
+      var r2 = nx * nx + ny * ny;
+      if (r2 >= 1) return null;
+      var edge = r2 <= 0.62 ? 1 : 1 - (r2 - 0.62) / 0.38;
+      edge = edge * edge * (3 - 2 * edge);
+      var sly = ly * (1 - closed * 0.86) - closed * 0.58 * ry;
+      var mix = closed * edge;
+      if (mix < 0.012) return null;
+      return {
+        x: eye.x + lx * cosA - sly * sinA,
+        y: eye.y + lx * sinA + sly * cosA,
+        mix: mix
+      };
     });
-
-    ctx.strokeStyle = rgba("#C48A68", 0.8);
-    ctx.lineWidth = 1.15;
-    ctx.beginPath();
-    ctx.moveTo(0, S * 0.02);
-    ctx.quadraticCurveTo(S * 0.01, S * 0.045, 0, S * 0.055);
-    ctx.stroke();
-
-    ctx.fillStyle = rgba("#E7A08A", 0.35);
-    [-1, 1].forEach(function (d) {
-      ctx.beginPath();
-      ctx.ellipse(d * S * 0.065, S * 0.03, S * 0.02, S * 0.01, 0, 0, Math.PI * 2);
-      ctx.fill();
-    });
-
-    var gap = lipGap(state, level, t, S * 0.026);
-    var mouthY = S * 0.07;
-    var mw = S * 0.032;
-    ctx.fillStyle = "#A85A56";
-    ctx.beginPath();
-    ctx.moveTo(-mw, mouthY);
-    ctx.quadraticCurveTo(0, mouthY - S * 0.006, mw, mouthY);
-    ctx.quadraticCurveTo(0, mouthY + gap + S * 0.01, -mw, mouthY);
-    ctx.fill();
-    if (gap > S * 0.008) {
-      ctx.fillStyle = "#5C2E34";
-      ctx.beginPath();
-      ctx.ellipse(0, mouthY + gap * 0.4, mw * 0.45, Math.max(1, gap * 0.32), 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    if (state === "thinking") {
-      ctx.strokeStyle = rgba(C.amber, 0.9);
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.arc(S * 0.18, -S * 0.12, S * 0.035, 0.3, 1.7);
-      ctx.stroke();
-    }
-    if (state === "speaking") {
-      ctx.globalAlpha = 0.3 + level * 0.5;
-      ctx.strokeStyle = C.cyan;
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.arc(0, mouthY, S * (0.05 + level * 0.04), 0.2, Math.PI - 0.2);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
-    drawPulses(ctx, w / 2, h * 0.55, w, C.cyan);
-    drawAiMark(ctx, w, h, C);
   }
 
+  function speakMouth(ctx, h, meta, crop, pivot, motion, amount) {
+    var a = moved(toCanvas(meta.mouth[0], meta.mouth[1], crop, h, h), pivot, motion);
+    var b = moved(toCanvas(meta.mouth[2], meta.mouth[3], crop, h, h), pivot, motion);
+    var chin = moved(toCanvas(meta.nose[0], meta.face.y + meta.face.h, crop, h, h), pivot, motion);
+    var mouthW = Math.hypot(b.x - a.x, b.y - a.y);
+    if (mouthW < 6) return;
+    var mx = (a.x + b.x) / 2;
+    var upperY = (a.y + b.y) / 2 - mouthW * 0.1;
+    var chinY = chin.y;
+    var faceH = Math.max(24, chinY - moved(toCanvas(meta.nose[0], meta.face.y, crop, h, h), pivot, motion).y);
+    var maxDrop = Math.max(8, Math.min(16, faceH * 0.09));
+    var drop = maxDrop * amount;
+    var sigma = mouthW * 0.72;
+    var lipSpan = mouthW * 0.24;
+    var neckEnd = chinY + faceH * 0.16;
+    var rectX = mx - mouthW * 1.15;
+    var rectY = upperY - 12;
+    var rectH = neckEnd - rectY + 8;
+    warp(ctx, rectX, rectY, mouthW * 2.3, rectH, function (px, py) {
+      var dx = px - mx;
+      var g = Math.exp(-(dx * dx) / (2 * sigma * sigma));
+      var env = 0;
+      if (py < upperY - 10) return null;
+      if (py < upperY) env = ((py - (upperY - 10)) / 10) * 0.25;
+      else if (py < upperY + lipSpan) {
+        var u = (py - upperY) / lipSpan;
+        env = u * u * (3 - 2 * u);
+      } else if (py < chinY) env = 1;
+      else if (py < neckEnd) {
+        var v = (py - chinY) / (neckEnd - chinY);
+        env = 1 - v * v;
+      } else return null;
+      var shift = drop * g * env;
+      var mix = Math.min(1, shift / 0.75) * Math.min(1, g * 1.35);
+      if (mix < 0.012 || shift < 0.2) return null;
+      return { x: px, y: py - shift, mix: mix };
+    });
+  }
 
-  var DRAW = { glow: drawGlow, neighbor: drawNeighbor, advisor: drawAdvisor };
+  function drawCover(ctx, source, w, h) {
+    var sw = source.videoWidth || source.naturalWidth;
+    var sh = source.videoHeight || source.naturalHeight;
+    if (!sw || !sh) return;
+    var scale = Math.max(w / sw, h / sh);
+    var dw = sw * scale;
+    var dh = sh * scale;
+    ctx.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  }
+
+  function sessionVideo(driver) {
+    if (driver.video || driver._sessionTried) return driver.video;
+    var session = window.HELIOS_CONFIG && window.HELIOS_CONFIG.talkingHeadSession;
+    if (!session || typeof session !== "string") return null;
+    if (!/^https?:|^blob:/.test(session)) return null;
+    driver._sessionTried = session;
+    var video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.loop = true;
+    video.autoplay = true;
+    video.src = session;
+    video.addEventListener("error", function () { driver.video = null; });
+    video.play().catch(function () {});
+    driver.video = video;
+    return video;
+  }
+
+  function remoteDraw(driver, ctx, w, h, t, run) {
+    var video = sharedVideo || sessionVideo(driver);
+    if (video && video.readyState >= 2 && (video.videoWidth || video.naturalWidth)) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      drawCover(ctx, video, w, h);
+      drawAiMark(ctx, w, h);
+      return;
+    }
+    drawPhoto(ctx, w, h, t, run);
+  }
+
+  function makeRemote(id) {
+    return {
+      id: id,
+      video: null,
+      draw: function (ctx, w, h, t, run) { remoteDraw(this, ctx, w, h, t, run); }
+    };
+  }
+
+  registry.photo = {
+    id: "photo",
+    draw: function (ctx, w, h, t, run) { drawPhoto(ctx, w, h, t, run); }
+  };
+  registry.heygen = makeRemote("heygen");
+  registry.did = makeRemote("did");
+  registry.simli = makeRemote("simli");
+
+  function resolveDriver() {
+    var id = chosenDriver || (window.HELIOS_CONFIG && window.HELIOS_CONFIG.talkingHead) || "photo";
+    id = String(id).toLowerCase();
+    return registry[id] || registry.photo;
+  }
+
+  function drawFrame(ctx, w, h, timeMs, run) {
+    var driver = resolveDriver();
+    driver.draw(ctx, w, h, timeMs || 0, run || runtime());
+  }
+
+  window.LindaTalkingHead = {
+    drivers: function () { return Object.keys(registry); },
+    current: function () { return resolveDriver().id; },
+    /* use() overrides HELIOS_CONFIG.talkingHead until the page reloads. */
+    use: function (id) {
+      id = String(id || "photo").toLowerCase();
+      if (!registry[id]) id = "photo";
+      chosenDriver = id;
+      return id;
+    },
+    /* Replace the built-in photo or vendor driver. */
+    register: function (id, driver) {
+      if (!id || !driver || typeof driver.draw !== "function") return false;
+      registry[String(id).toLowerCase()] = driver;
+      return true;
+    },
+    /* A playing video from HeyGen, D-ID, or Simli. The photo stays up until it can play. */
+    attachVideo: function (videoEl) {
+      sharedVideo = videoEl || null;
+      return sharedVideo;
+    },
+    detachVideo: function () {
+      sharedVideo = null;
+    },
+    /* Hold a pose for a still. Pass null to follow the voice again. */
+    preview: function (next) { pose = next || null; },
+    frame: function (ctx, w, h, timeMs, run) {
+      drawFrame(ctx, w, h, timeMs, run);
+    }
+  };
 
   window.CloserAvatars = {
     ids: IDS.slice(),
@@ -686,9 +587,7 @@ function glowHalf(y, h) {
     use: use,
     draw: function (ctx, w, h, timeMs) {
       if (!ctx || !w || !h) return;
-      var run = runtime();
-      ctx.clearRect(0, 0, w, h);
-      (DRAW[current] || drawGlow)(ctx, w, h, timeMs || 0, run.state, run.level);
+      drawFrame(ctx, w, h, timeMs || 0, runtime());
     },
     bindSwitcher: function () {
       document.querySelectorAll("[data-avatar-pick]").forEach(function (btn) {
@@ -702,4 +601,6 @@ function glowHalf(y, h) {
       use(id, { silent: !raw || raw === id });
     }
   };
+
+  preload();
 })();
