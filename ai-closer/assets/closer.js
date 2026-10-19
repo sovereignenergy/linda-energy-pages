@@ -31,7 +31,8 @@
     { id: "state-funded", re: /funded by the state/i },
     { id: "future-rates", re: /no future rate/i },
     { id: "save-range", re: /save\s*15|15\s*[-–]\s*40/i },
-    { id: "dealer-brand", re: /\bsunrun\b/i },
+    // Dealer name stays split so this served file does not spell it. The guard still blocks that wording.
+    { id: "dealer-brand", re: new RegExp("\\b" + "sun" + "run" + "\\b", "i") },
     { id: "utility-swap", re: /utility swap/i },
     { id: "off-grid", re: /off the grid/i },
     { id: "no-blackouts", re: /no blackouts/i },
